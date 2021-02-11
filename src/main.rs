@@ -1,28 +1,28 @@
-use octocrab::{models, params};
+mod github;
+mod shell;
 
-async fn get_issue_list(
-    owner: &str,
-    repo: &str,
-) -> std::result::Result<octocrab::Page<models::issues::Issue>, octocrab::Error> {
-    let octocrab = octocrab::instance();
-    
-    octocrab
-        .issues(owner, repo)
-        .list()
-        .state(params::State::Open)
-        .per_page(50)
-        .send()
-        .await
-}
+use github::GitHub;
 
 #[tokio::main]
 async fn main() {
-    match get_issue_list("rust-lang", "rust").await {
+
+    let token = std::env::var("GITHUB_TOKEN").expect("GITHUB_TOKEN env variable is required");
+    let github = GitHub::new(token);
+    
+    match github.get_issue_list("rust-lang", "rust").await {
         Ok(page) => {
             for issue in page {
-                println!("{}", issue.title);
+                println!("#{}: {}",issue.number, issue.title);
             }
         },
         Err(e) => println!("error: {}", e),
     }
+
+    let origin = shell::get_current_origin();
+
+    match github.create_pull_request(&origin.0, &origin.1).await {
+        Ok(result) => println!("{:?}", result),
+        Err(e) => println!("error: {}", e),
+    }
+
 }
